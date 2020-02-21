@@ -3,7 +3,8 @@
 #include <jni.h>
 #include <string>
 #include <vector>
-
+#include <time.h>
+#include <chrono>
 // ncnn
 #include "include/opencv.h"
 #include "MobileNetSSD_deploy.id.h"   //这里看成自己的id.h
@@ -33,7 +34,8 @@ Java_com_example_cheungbh_SimplePose_SimplePose_Init(JNIEnv *env, jobject obj, j
         int len = env->GetArrayLength(param);
         ncnn_param.create(len, (size_t) 1u);
         env->GetByteArrayRegion(param, 0, len, (jbyte *) ncnn_param);
-        int ret = ncnn_net.load_param((const unsigned char *) ncnn_param);
+//        int ret = ncnn_net.load_param((const unsigned char *) ncnn_param);
+        int ret = ncnn_net.load_param_mem((const char *) ncnn_param);
         __android_log_print(ANDROID_LOG_DEBUG, "MobileNetssd", "load_param %d %d", ret, len);
     }
 
@@ -97,26 +99,26 @@ JNIEXPORT jfloatArray JNICALL Java_com_example_cheungbh_SimplePose_SimplePose_De
         in.substract_mean_normalize(mean_vals, scale);// 归一化
         LOGW("input shape: %d dimensions: %d %d %d\n", in.dims, in.h, in.w, in.c);
 
+        auto start = std::chrono::high_resolution_clock::now();
         ncnn::Extractor ex = ncnn_net.create_extractor();
 
         ex.input("data", in);
 
-        ncnn::Mat resnetv1b_conv0_fwd_out;
-        int lay1 = ex.extract("resnetv1b_conv0_fwd_out", resnetv1b_conv0_fwd_out);
-        LOGW("The return value is: %d", lay1);
-        LOGW("output shape: %d dimensions: %d %d %d\n", resnetv1b_conv0_fwd_out.dims, resnetv1b_conv0_fwd_out.h, resnetv1b_conv0_fwd_out.w, resnetv1b_conv0_fwd_out.c);
-
-        ncnn::Mat resnetv1b_pool0_fwd;
-        int lay2 = ex.extract("resnetv1b_pool0_fwd", resnetv1b_pool0_fwd);
-        LOGW("The return value is: %d", lay2);
-        LOGW("output shape: %d dimensions: %d %d %d\n", resnetv1b_pool0_fwd.dims, resnetv1b_pool0_fwd.h, resnetv1b_pool0_fwd.w, resnetv1b_pool0_fwd.c);
-
-        ncnn::Mat splitncnn_0;
-        int lay3 = ex.extract("splitncnn_0", splitncnn_0);
-        LOGW("Current layer is splitncnn_0");
-        LOGW("The return value is: %d", lay3);
-        LOGW("output shape: %d dimensions: %d %d %d\n", splitncnn_0.dims, splitncnn_0.h, splitncnn_0.w, splitncnn_0.c);
-
+//        ncnn::Mat resnetv1b_conv0_fwd_out;
+//        int lay1 = ex.extract("resnetv1b_conv0_fwd_out", resnetv1b_conv0_fwd_out);
+//        LOGW("The return value is: %d", lay1);
+//        LOGW("output shape: %d dimensions: %d %d %d\n", resnetv1b_conv0_fwd_out.dims, resnetv1b_conv0_fwd_out.h, resnetv1b_conv0_fwd_out.w, resnetv1b_conv0_fwd_out.c);
+//
+//        ncnn::Mat resnetv1b_pool0_fwd;
+//        int lay2 = ex.extract("resnetv1b_pool0_fwd", resnetv1b_pool0_fwd);
+//        LOGW("The return value is: %d", lay2);
+//        LOGW("output shape: %d dimensions: %d %d %d\n", resnetv1b_pool0_fwd.dims, resnetv1b_pool0_fwd.h, resnetv1b_pool0_fwd.w, resnetv1b_pool0_fwd.c);
+//
+//        ncnn::Mat splitncnn_0;
+//        int lay3 = ex.extract("splitncnn_0", splitncnn_0);
+//        LOGW("Current layer is splitncnn_0");
+//        LOGW("The return value is: %d", lay3);
+//        LOGW("output shape: %d dimensions: %d %d %d\n", splitncnn_0.dims, splitncnn_0.h, splitncnn_0.w, splitncnn_0.c);
 
 
         ncnn::Mat out;
@@ -129,20 +131,54 @@ JNIEXPORT jfloatArray JNICALL Java_com_example_cheungbh_SimplePose_SimplePose_De
         int output_hsize = out.h;
         LOGW("The width is %d\n", output_wsize);
         LOGW("The height is %d\n", output_hsize);
-//        printf(output_hsize)
-
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        LOGW("The time required to find maximum (ms) %lld\n: ", duration.count() );
         //输出整理
-        jfloat *output[output_wsize * output_hsize];   // float类型
-        for(int i = 0; i< out.h; i++) {
-            for (int j = 0; j < out.w; j++) {
-                output[i*output_wsize + j] = &out.row(i)[j];
+        jfloat *output[34];   // float类型
+        float outputc[34];
+
+        for (int p = 0; p < out.c; p++)
+        {
+            const ncnn::Mat m = out.channel(p);
+
+//            LOGW("The output channel is %d", )
+
+            float max_prob = 0.f;
+            int max_x = 0;
+            int max_y = 0;
+            float final_x = 0;
+            float final_y = 0;
+            for (int y = 0; y < out.h; y++)
+            {
+                const float* ptr = m.row(y);
+                for (int x = 0; x < out.w; x++)
+                {
+                    float prob = ptr[x];
+                    if (prob > max_prob)
+                    {
+                        max_prob = prob;
+                        max_x = x;
+                        max_y = y;
+                    }
+                }
             }
+            LOGW("The max_x is %d\n", max_x );
+            LOGW("The max_y is %d\n", max_y );
+            final_x = ((float)max_x / (float)out.w ) ;
+            final_y = ((float)max_y / (float)out.h ) ;
+            LOGW("The final_x is %2f\n", final_x);
+            LOGW("The final_y is %2f\n", final_y);
+            outputc[2*p] = final_x;
+            outputc[2*p+1] = final_y;
         }
+
         //建立float数组 长度为 output_wsize * output_hsize,如果只是ouput_size相当于只有一行的out的数据那就是一个object检测数据
-        jfloatArray jOutputData = env->NewFloatArray(output_wsize * output_hsize);
+        jfloatArray jOutputData = env->NewFloatArray(34);
         if (jOutputData == nullptr) return nullptr;
-        env->SetFloatArrayRegion(jOutputData, 0,  output_wsize * output_hsize,
-                                 reinterpret_cast<const jfloat *>(*output));
+//        env->SetFloatArrayRegion(jOutputData, 0,  34,
+//                                 reinterpret_cast<const jfloat *>(*output));
+        env->SetFloatArrayRegion(jOutputData, 0,  34, outputc);
         return jOutputData;
     }
 }

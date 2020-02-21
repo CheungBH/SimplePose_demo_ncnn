@@ -163,13 +163,13 @@ public class MainActivity extends AppCompatActivity {
         // resize
         Bitmap input_bmp = Bitmap.createScaledBitmap(rgba, ddims[2], ddims[3], false);
         try {
+            int original_w = rgba.getWidth();
+            int original_h = rgba.getHeight();
             // Data format conversion takes too long
             // Log.d("inputData", Arrays.toString(inputData));
             long start = System.currentTimeMillis();
-            System.out.print("diuleiloumouhai");
             // get predict result
             float[] result = simplepose.Detect(input_bmp);
-            System.out.print("diuleiloumou");
             // time end
             long end = System.currentTimeMillis();
             Log.d(TAG, "origin predict result:" + Arrays.toString(result));
@@ -178,7 +178,7 @@ public class MainActivity extends AppCompatActivity {
             // show predict result and time
             // float[] r = get_max_result(result);
 
-            String show_text = "result：" + Arrays.toString(result) + "\nname：" + resultLabel.get((int) result[0]) + "\nprobability：" + result[1] + "\ntime：" + time + "ms" ;
+            String show_text = "result：" + Arrays.toString(result) + "\ntime：" + time + "ms" ;
             result_text.setText(show_text);
 
             // 画布配置
@@ -188,28 +188,35 @@ public class MainActivity extends AppCompatActivity {
             paint.setColor(Color.RED);
             paint.setStyle(Paint.Style.STROKE);//不填充
             paint.setStrokeWidth(5); //线的宽度
-
-
-            float get_finalresult[][] = TwoArry(result);
-            Log.d("zhuanhuan",get_finalresult+"");
-            int object_num = 0;
-            int num = result.length/6;// number of object
-            //continue to draw rect
-            for(object_num = 0; object_num < num; object_num++){
-                Log.d(TAG, "haha :" + Arrays.toString(get_finalresult));
-                // 画框
-                paint.setColor(Color.RED);
-                paint.setStyle(Paint.Style.STROKE);//不填充
-                paint.setStrokeWidth(5); //线的宽度
-                canvas.drawRect(get_finalresult[object_num][2] * rgba.getWidth(), get_finalresult[object_num][3] * rgba.getHeight(),
-                        get_finalresult[object_num][4] * rgba.getWidth(), get_finalresult[object_num][5] * rgba.getHeight(), paint);
-
-                paint.setColor(Color.YELLOW);
-                paint.setStyle(Paint.Style.FILL);//不填充
-                paint.setStrokeWidth(1); //线的宽度
-                canvas.drawText(resultLabel.get((int) get_finalresult[object_num][0]) + "\n" + get_finalresult[object_num][1],
-                        get_finalresult[object_num][2]*rgba.getWidth(),get_finalresult[object_num][3]*rgba.getHeight(),paint);
+            int ptnums = result.length/2; //  34/2 = 17
+            int cx = 0;
+            int cy = 0;
+            for(int pt = 0; pt<ptnums ; pt++){
+                cx = (int)(result[2*pt]*(float)original_w);
+                cy = (int)(result[2*pt+1]*(float)original_h);
+                canvas.drawCircle(cx, cy, 5, paint);
             }
+//
+//            float get_finalresult[][] = TwoArry(result);
+//            Log.d("zhuanhuan",get_finalresult+"");
+//            int object_num = 0;
+//            int num = result.length/6;// number of object
+//            //continue to draw rect
+//            for(object_num = 0; object_num < num; object_num++){
+//                Log.d(TAG, "haha :" + Arrays.toString(get_finalresult));
+//                // 画框
+//                paint.setColor(Color.RED);
+//                paint.setStyle(Paint.Style.STROKE);//不填充
+//                paint.setStrokeWidth(5); //线的宽度
+//                canvas.drawRect(get_finalresult[object_num][2] * rgba.getWidth(), get_finalresult[object_num][3] * rgba.getHeight(),
+//                        get_finalresult[object_num][4] * rgba.getWidth(), get_finalresult[object_num][5] * rgba.getHeight(), paint);
+//
+//                paint.setColor(Color.YELLOW);
+//                paint.setStyle(Paint.Style.FILL);//不填充
+//                paint.setStrokeWidth(1); //线的宽度
+//                canvas.drawText(resultLabel.get((int) get_finalresult[object_num][0]) + "\n" + get_finalresult[object_num][1],
+//                        get_finalresult[object_num][2]*rgba.getWidth(),get_finalresult[object_num][3]*rgba.getHeight(),paint);
+//            }
 
             show_image.setImageBitmap(rgba);
 
